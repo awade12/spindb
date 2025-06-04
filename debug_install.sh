@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
-
-# Enable debug mode if DEBUG=1 is set
-if [ "${DEBUG:-0}" = "1" ]; then
-    set -x
-fi
+set -e
 
 OWNER="awade12"
 REPO="spindb"
@@ -256,126 +251,12 @@ download_binary() {
         DOWNLOAD_URL="https://github.com/${OWNER}/${REPO}/releases/download/${LATEST_TAG}/${BINARY_FILENAME}"
     fi
     
-    if curl -L -o "$LOCAL_BINARY_NAME" "$DOWNLOAD_URL" 2>/dev/null; then
-        chmod +x "$LOCAL_BINARY_NAME"
-        log "Download completed successfully"
-    else
-        warn "Pre-built binary not available, building from source..."
-        build_from_source
-    fi
-}
-
-build_from_source() {
-    log "Building SpinDB from source..."
-    
-    check_build_dependencies
-    
-    log "Cloning repository..."
-    if ! git clone "https://github.com/${OWNER}/${REPO}.git" "${REPO}"; then
-        error "Failed to clone repository"
+    if ! curl -L -o "$LOCAL_BINARY_NAME" "$DOWNLOAD_URL"; then
+        error "Failed to download binary from $DOWNLOAD_URL"
     fi
     
-    cd "${REPO}"
-    
-    if [ "$LATEST_TAG" != "latest" ]; then
-        log "Checking out tag ${LATEST_TAG}..."
-        git checkout "${LATEST_TAG}"
-    fi
-    
-    log "Downloading Go dependencies..."
-    if ! go mod download; then
-        error "Failed to download Go dependencies"
-    fi
-    
-    log "Building binary..."
-    if ! go build -ldflags "-s -w" -o "../${LOCAL_BINARY_NAME}" .; then
-        error "Failed to build binary"
-    fi
-    
-    cd ..
     chmod +x "$LOCAL_BINARY_NAME"
-    log "Build completed successfully"
-}
-
-check_build_dependencies() {
-    if ! command -v git >/dev/null 2>&1; then
-        error "git is required for building from source but not installed"
-    fi
-    
-    if ! command -v go >/dev/null 2>&1; then
-        log "Go not found, installing..."
-        install_go
-    fi
-}
-
-install_go() {
-    case "$OS" in
-        "linux")
-            log "Installing Go on Linux..."
-            if command -v apt-get >/dev/null 2>&1; then
-                sudo apt-get update
-                sudo apt-get install -y golang-go
-            elif command -v yum >/dev/null 2>&1; then
-                sudo yum install -y golang
-            elif command -v dnf >/dev/null 2>&1; then
-                sudo dnf install -y golang
-            else
-                install_go_from_source
-            fi
-            ;;
-        "darwin")
-            log "Installing Go on macOS..."
-            if command -v brew >/dev/null 2>&1; then
-                brew install go
-            else
-                install_go_from_source
-            fi
-            ;;
-        *)
-            install_go_from_source
-            ;;
-    esac
-}
-
-install_go_from_source() {
-    log "Installing Go from official installer..."
-    
-    case "$OS" in
-        "linux")
-            if [ "$ARCH" = "amd64" ]; then
-                GO_URL="https://golang.org/dl/go1.21.5.linux-amd64.tar.gz"
-            elif [ "$ARCH" = "arm64" ]; then
-                GO_URL="https://golang.org/dl/go1.21.5.linux-arm64.tar.gz"
-            else
-                error "Unsupported architecture for Go installation: $ARCH"
-            fi
-            ;;
-        "darwin")
-            if [ "$ARCH" = "amd64" ]; then
-                GO_URL="https://golang.org/dl/go1.21.5.darwin-amd64.tar.gz"
-            elif [ "$ARCH" = "arm64" ]; then
-                GO_URL="https://golang.org/dl/go1.21.5.darwin-arm64.tar.gz"
-            else
-                error "Unsupported architecture for Go installation: $ARCH"
-            fi
-            ;;
-        *)
-            error "Unsupported OS for Go installation: $OS"
-            ;;
-    esac
-    
-    curl -L -o go.tar.gz "$GO_URL"
-    sudo rm -rf /usr/local/go
-    sudo tar -C /usr/local -xzf go.tar.gz
-    
-    export PATH=$PATH:/usr/local/go/bin
-    echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-    
-    if ! command -v go >/dev/null 2>&1; then
-        error "Go installation failed"
-    fi
-    
-    log "Go installed successfully"
+    log "Download completed successfully"
 }
 
 install_binary() {
@@ -411,10 +292,8 @@ verify_installation() {
 }
 
 cleanup() {
-    if [ -n "${TEMP_DIR:-}" ] && [ -d "$TEMP_DIR" ]; then
-        log "Cleaning up temporary files..."
-        rm -rf "$TEMP_DIR"
-    fi
+    log "Cleaning up temporary files..."
+    rm -rf "$TEMP_DIR"
 }
 
 show_usage() {
@@ -452,31 +331,15 @@ main() {
     echo "=================="
     echo ""
     
-    log "Starting installation process..."
-    
-    log "Checking dependencies..."
     check_dependencies
-    
-    log "Detecting OS and architecture..."
     detect_os
     detect_arch
-    
-    log "Checking Docker..."
     check_docker
-    
-    log "Getting latest release information..."
     get_latest_release
-    
-    log "Downloading or building binary..."
     download_binary
-    
-    log "Installing binary..."
     install_binary
-    
-    log "Verifying installation..."
     verify_installation
-    
-    log "Installation process completed"
+    cleanup
     
     echo ""
     show_usage

@@ -11,13 +11,20 @@ A powerful CLI tool to spin up and manage databases (PostgreSQL, MySQL, SQLite) 
 
 ### Installation
 
+#### Quick Install (Recommended)
 ```bash
-# From source
+curl -sSL https://raw.githubusercontent.com/awade12/spindb/main/install.sh | bash
+```
+
+#### From Source
+```bash
 git clone https://github.com/awade12/spindb.git
 cd spindb
 make build
 sudo make install
 ```
+
+> **📋 For complete installation options and troubleshooting, see [Installation Guide](docs/installation.md)**
 
 ### Basic Usage
 
