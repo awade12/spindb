@@ -417,6 +417,105 @@ cleanup() {
     fi
 }
 
+check_and_offer_client_tools() {
+    log "Checking for database client tools..."
+    
+    missing_clients=""
+    
+    if ! command -v psql >/dev/null 2>&1; then
+        missing_clients="${missing_clients}postgresql-client "
+    fi
+    
+    if ! command -v mysql >/dev/null 2>&1; then
+        missing_clients="${missing_clients}mysql-client "
+    fi
+    
+    if ! command -v sqlite3 >/dev/null 2>&1; then
+        missing_clients="${missing_clients}sqlite3 "
+    fi
+    
+    if [ -n "$missing_clients" ]; then
+        echo ""
+        warn "Optional database client tools are missing: ${missing_clients}"
+        echo "These tools are needed for the 'spindb connect' command to open interactive shells."
+        echo ""
+        
+        if [ "$OS" = "linux" ]; then
+            echo "Would you like to install them now? (y/N)"
+            read -r install_clients
+            
+            if [ "$install_clients" = "y" ] || [ "$install_clients" = "Y" ]; then
+                install_database_clients
+            else
+                echo ""
+                log "You can install them later with:"
+                if command -v apt-get >/dev/null 2>&1; then
+                    echo "  sudo apt update && sudo apt install postgresql-client mysql-client sqlite3"
+                elif command -v yum >/dev/null 2>&1; then
+                    echo "  sudo yum install postgresql mysql sqlite"
+                elif command -v dnf >/dev/null 2>&1; then
+                    echo "  sudo dnf install postgresql mysql sqlite"
+                fi
+            fi
+        else
+            echo "To install them later:"
+            if [ "$OS" = "darwin" ]; then
+                echo "  brew install postgresql mysql-client sqlite"
+            fi
+        fi
+    else
+        log "✓ All database client tools are installed"
+    fi
+}
+
+install_database_clients() {
+    log "Installing database client tools..."
+    
+    if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update
+        
+        if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get install -y postgresql-client
+        fi
+        
+        if ! command -v mysql >/dev/null 2>&1; then
+            sudo apt-get install -y mysql-client
+        fi
+        
+        if ! command -v sqlite3 >/dev/null 2>&1; then
+            sudo apt-get install -y sqlite3
+        fi
+        
+    elif command -v yum >/dev/null 2>&1; then
+        if ! command -v psql >/dev/null 2>&1; then
+            sudo yum install -y postgresql
+        fi
+        
+        if ! command -v mysql >/dev/null 2>&1; then
+            sudo yum install -y mysql
+        fi
+        
+        if ! command -v sqlite3 >/dev/null 2>&1; then
+            sudo yum install -y sqlite
+        fi
+        
+    elif command -v dnf >/dev/null 2>&1; then
+        if ! command -v psql >/dev/null 2>&1; then
+            sudo dnf install -y postgresql
+        fi
+        
+        if ! command -v mysql >/dev/null 2>&1; then
+            sudo dnf install -y mysql
+        fi
+        
+        if ! command -v sqlite3 >/dev/null 2>&1; then
+            sudo dnf install -y sqlite
+        fi
+    fi
+    
+    log "✓ Database client tools installation completed"
+}
+
 show_usage() {
     echo -e "${BOLD}SpinDB Installation Complete!${NC}"
     echo ""
@@ -426,6 +525,15 @@ show_usage() {
     else
         echo -e "${YELLOW}⚠ Make sure Docker is running before using SpinDB${NC}"
     fi
+    
+    # Check client tools status
+    client_status=""
+    if command -v psql >/dev/null 2>&1 && command -v mysql >/dev/null 2>&1 && command -v sqlite3 >/dev/null 2>&1; then
+        client_status="${GREEN}✓ Database client tools are installed${NC}"
+    else
+        client_status="${YELLOW}⚠ Some database client tools are missing (needed for 'spindb connect')${NC}"
+    fi
+    echo -e "$client_status"
     
     echo ""
     echo "You can now use SpinDB with the following commands:"
@@ -475,6 +583,9 @@ main() {
     
     log "Verifying installation..."
     verify_installation
+    
+    # Check and offer to install database client tools
+    check_and_offer_client_tools
     
     log "Installation process completed"
     

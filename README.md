@@ -124,10 +124,45 @@ spindb delete --name myapp-db
   ```
 
 ### Database Client Tools (Optional)
-For the `connect` command to work optimally:
+For the `spindb connect` command to open interactive database shells:
+
 - **PostgreSQL**: `psql` client
-- **MySQL**: `mysql` client  
+  ```bash
+  # Ubuntu/Debian
+  sudo apt install postgresql-client
+  
+  # CentOS/RHEL
+  sudo yum install postgresql
+  
+  # macOS
+  brew install postgresql
+  ```
+
+- **MySQL**: `mysql` client
+  ```bash
+  # Ubuntu/Debian
+  sudo apt install mysql-client
+  
+  # CentOS/RHEL
+  sudo yum install mysql
+  
+  # macOS
+  brew install mysql-client
+  ```
+
 - **SQLite**: `sqlite3` (usually pre-installed)
+  ```bash
+  # Ubuntu/Debian
+  sudo apt install sqlite3
+  
+  # CentOS/RHEL
+  sudo yum install sqlite
+  
+  # macOS
+  brew install sqlite
+  ```
+
+> **📝 Note**: The enhanced install script can automatically install these client tools on Linux systems. If client tools are missing, SpinDB will provide helpful error messages with installation instructions and Docker alternatives.
 
 ## Development
 

@@ -384,16 +384,47 @@ func (m *Manager) openConnection(db *config.DatabaseConfig) error {
 	m.store.Save(db)
 
 	var cmd *exec.Cmd
+	var clientCmd string
+	var installInstructions string
+
 	switch db.Type {
 	case "postgres":
+		clientCmd = "psql"
+		installInstructions = m.getInstallInstructions("postgresql-client", "psql")
 		cmd = exec.Command("psql", "-h", "localhost", "-p", strconv.Itoa(db.Port), "-U", db.User, "-d", db.Name)
 		cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", db.Password))
 	case "mysql":
+		clientCmd = "mysql"
+		installInstructions = m.getInstallInstructions("mysql-client", "mysql")
 		cmd = exec.Command("mysql", "-h", "localhost", "-P", strconv.Itoa(db.Port), "-u", db.User, fmt.Sprintf("-p%s", db.Password), db.Name)
 	case "sqlite":
+		clientCmd = "sqlite3"
+		installInstructions = m.getInstallInstructions("sqlite3", "sqlite3")
 		cmd = exec.Command("sqlite3", db.FilePath)
 	default:
 		return fmt.Errorf("unsupported database type: %s", db.Type)
+	}
+
+	if _, err := exec.LookPath(clientCmd); err != nil {
+		fmt.Printf("❌ Database client '%s' not found in PATH.\n\n", clientCmd)
+		fmt.Printf("To connect interactively to your database, you need to install the client:\n\n")
+		fmt.Printf("%s\n\n", installInstructions)
+		fmt.Printf("Alternatively, you can:\n")
+		fmt.Printf("• Use '--test-only' flag to test the connection without opening a shell\n")
+		fmt.Printf("• Use Docker to run the client:\n")
+
+		switch db.Type {
+		case "postgres":
+			fmt.Printf("  docker run -it --rm postgres:%s psql -h host.docker.internal -p %d -U %s -d %s\n",
+				db.Version, db.Port, db.User, db.Name)
+		case "mysql":
+			fmt.Printf("  docker run -it --rm mysql:%s mysql -h host.docker.internal -P %d -u %s -p%s %s\n",
+				db.Version, db.Port, db.User, db.Password, db.Name)
+		case "sqlite":
+			fmt.Printf("  docker run -it --rm -v %s:/db alpine sqlite3 /db\n", db.FilePath)
+		}
+
+		return fmt.Errorf("client '%s' not available", clientCmd)
 	}
 
 	cmd.Stdin = os.Stdin
@@ -402,6 +433,37 @@ func (m *Manager) openConnection(db *config.DatabaseConfig) error {
 
 	fmt.Printf("Opening %s shell for database '%s'...\n", db.Type, db.Name)
 	return cmd.Run()
+}
+
+func (m *Manager) getInstallInstructions(packageName, clientName string) string {
+	var instructions []string
+
+	instructions = append(instructions, fmt.Sprintf("Ubuntu/Debian: sudo apt update && sudo apt install %s", packageName))
+
+	switch clientName {
+	case "psql":
+		instructions = append(instructions, "CentOS/RHEL: sudo yum install postgresql")
+		instructions = append(instructions, "Fedora: sudo dnf install postgresql")
+		instructions = append(instructions, "macOS: brew install postgresql")
+		instructions = append(instructions, "Alpine: apk add postgresql-client")
+	case "mysql":
+		instructions = append(instructions, "CentOS/RHEL: sudo yum install mysql")
+		instructions = append(instructions, "Fedora: sudo dnf install mysql")
+		instructions = append(instructions, "macOS: brew install mysql-client")
+		instructions = append(instructions, "Alpine: apk add mysql-client")
+	case "sqlite3":
+		instructions = append(instructions, "CentOS/RHEL: sudo yum install sqlite")
+		instructions = append(instructions, "Fedora: sudo dnf install sqlite")
+		instructions = append(instructions, "macOS: brew install sqlite")
+		instructions = append(instructions, "Alpine: apk add sqlite")
+	}
+
+	result := ""
+	for _, instruction := range instructions {
+		result += "• " + instruction + "\n"
+	}
+
+	return strings.TrimSuffix(result, "\n")
 }
 
 func (m *Manager) ShowInfo(name string, showCredentials bool) error {
