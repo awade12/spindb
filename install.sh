@@ -69,6 +69,150 @@ check_dependencies() {
     fi
 }
 
+check_docker() {
+    if command -v docker >/dev/null 2>&1; then
+        log "Docker is already installed"
+        if docker ps >/dev/null 2>&1; then
+            log "✓ Docker daemon is running"
+            return 0
+        else
+            warn "Docker is installed but daemon is not running"
+            log "Attempting to start Docker daemon..."
+            start_docker_daemon
+        fi
+    else
+        log "Docker not found. Installing Docker..."
+        install_docker
+    fi
+}
+
+start_docker_daemon() {
+    case "$OS" in
+        "linux")
+            if command -v systemctl >/dev/null 2>&1; then
+                log "Starting Docker with systemctl..."
+                sudo systemctl start docker
+                sudo systemctl enable docker
+            elif command -v service >/dev/null 2>&1; then
+                log "Starting Docker with service..."
+                sudo service docker start
+            else
+                warn "Could not start Docker daemon automatically. Please start Docker manually."
+            fi
+            ;;
+        "darwin")
+            log "Please start Docker Desktop manually if it's not running"
+            log "You can find Docker Desktop in your Applications folder"
+            ;;
+        "windows")
+            log "Please start Docker Desktop manually if it's not running"
+            ;;
+    esac
+}
+
+install_docker() {
+    case "$OS" in
+        "linux")
+            install_docker_linux
+            ;;
+        "darwin")
+            install_docker_macos
+            ;;
+        "windows")
+            install_docker_windows
+            ;;
+        *)
+            error "Unsupported operating system for Docker installation: $OS"
+            ;;
+    esac
+}
+
+install_docker_linux() {
+    log "Installing Docker on Linux..."
+    
+    if command -v apt-get >/dev/null 2>&1; then
+        log "Using apt package manager..."
+        sudo apt-get update
+        sudo apt-get install -y ca-certificates curl gnupg lsb-release
+        
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        
+    elif command -v yum >/dev/null 2>&1; then
+        log "Using yum package manager..."
+        sudo yum install -y yum-utils
+        sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        
+    elif command -v dnf >/dev/null 2>&1; then
+        log "Using dnf package manager..."
+        sudo dnf -y install dnf-plugins-core
+        sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+        sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        
+    else
+        log "Using Docker's convenience script..."
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+        rm get-docker.sh
+    fi
+    
+    sudo usermod -aG docker $USER
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    
+    log "✓ Docker installed successfully"
+    log "Note: You may need to log out and back in for Docker group permissions to take effect"
+}
+
+install_docker_macos() {
+    log "Installing Docker Desktop on macOS..."
+    
+    if [ "$ARCH" = "arm64" ]; then
+        DOCKER_URL="https://desktop.docker.com/mac/main/arm64/Docker.dmg"
+    else
+        DOCKER_URL="https://desktop.docker.com/mac/main/amd64/Docker.dmg"
+    fi
+    
+    log "Downloading Docker Desktop..."
+    curl -L -o "$TEMP_DIR/Docker.dmg" "$DOCKER_URL"
+    
+    log "Mounting Docker Desktop installer..."
+    hdiutil attach "$TEMP_DIR/Docker.dmg" -quiet
+    
+    log "Installing Docker Desktop..."
+    sudo cp -R "/Volumes/Docker/Docker.app" "/Applications/"
+    
+    log "Unmounting installer..."
+    hdiutil detach "/Volumes/Docker" -quiet
+    
+    log "✓ Docker Desktop installed successfully"
+    log "Please start Docker Desktop from your Applications folder"
+    log "Wait for Docker Desktop to start before using SpinDB"
+}
+
+install_docker_windows() {
+    log "Installing Docker Desktop on Windows..."
+    
+    DOCKER_URL="https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe"
+    
+    log "Downloading Docker Desktop installer..."
+    curl -L -o "$TEMP_DIR/DockerDesktopInstaller.exe" "$DOCKER_URL"
+    
+    log "Running Docker Desktop installer..."
+    log "Please follow the installation prompts..."
+    "$TEMP_DIR/DockerDesktopInstaller.exe"
+    
+    log "✓ Docker Desktop installer launched"
+    log "Please complete the installation and start Docker Desktop"
+    log "Wait for Docker Desktop to start before using SpinDB"
+}
+
 get_latest_release() {
     log "Fetching latest release information..."
     
@@ -87,9 +231,6 @@ get_latest_release() {
 }
 
 download_binary() {
-    detect_os
-    detect_arch
-    
     if [ "$OS" = "windows" ]; then
         BINARY_FILENAME="${BINARY_NAME}-${OS}-${ARCH}.exe"
         LOCAL_BINARY_NAME="${BINARY_NAME}.exe"
@@ -158,6 +299,14 @@ cleanup() {
 show_usage() {
     echo -e "${BOLD}SpinDB Installation Complete!${NC}"
     echo ""
+    
+    if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ Docker is running and ready${NC}"
+    else
+        echo -e "${YELLOW}⚠ Make sure Docker is running before using SpinDB${NC}"
+    fi
+    
+    echo ""
     echo "You can now use SpinDB with the following commands:"
     echo ""
     echo -e "  ${BLUE}spindb create${NC}     - Create a new database instance"
@@ -183,6 +332,9 @@ main() {
     echo ""
     
     check_dependencies
+    detect_os
+    detect_arch
+    check_docker
     get_latest_release
     download_binary
     install_binary
