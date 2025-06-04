@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -e
 
 # Enable debug mode if DEBUG=1 is set
 if [ "${DEBUG:-0}" = "1" ]; then
