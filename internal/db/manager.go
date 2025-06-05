@@ -50,11 +50,11 @@ func NewManager() *Manager {
 
 func (m *Manager) CreatePostgres(cfg *PostgresConfig) error {
 	if m.dockerService == nil {
-		return fmt.Errorf("Docker service not available")
+		return fmt.Errorf("docker service not available")
 	}
 
 	if err := m.dockerService.IsDockerRunning(); err != nil {
-		return fmt.Errorf("Docker is not running: %w", err)
+		return fmt.Errorf("docker is not running: %w", err)
 	}
 
 	port := cfg.Port
@@ -96,6 +96,7 @@ func (m *Manager) CreatePostgres(cfg *PostgresConfig) error {
 		Volumes: []string{
 			docker.CreateVolumeMount(dataDir, "/var/lib/postgresql/data"),
 		},
+		Public: cfg.Public,
 	}
 
 	fmt.Printf("Creating PostgreSQL container %s...\n", containerName)
@@ -136,18 +137,25 @@ func (m *Manager) CreatePostgres(cfg *PostgresConfig) error {
 	fmt.Printf("✅ PostgreSQL database '%s' created successfully!\n", cfg.Name)
 	fmt.Printf("   Container ID: %s\n", containerID[:12])
 	fmt.Printf("   Port: %d\n", availablePort)
-	fmt.Printf("   Connection: psql -h localhost -p %d -U %s -d %s\n", availablePort, cfg.User, cfg.Name)
+	host := "localhost"
+	if cfg.Public {
+		host = "<your-server-ip>"
+		fmt.Printf("   Public: Yes (accessible externally)\n")
+	} else {
+		fmt.Printf("   Public: No (localhost only)\n")
+	}
+	fmt.Printf("   Connection: psql -h %s -p %d -U %s -d %s\n", host, availablePort, cfg.User, cfg.Name)
 
 	return nil
 }
 
 func (m *Manager) CreateMySQL(cfg *MySQLConfig) error {
 	if m.dockerService == nil {
-		return fmt.Errorf("Docker service not available")
+		return fmt.Errorf("docker service not available")
 	}
 
 	if err := m.dockerService.IsDockerRunning(); err != nil {
-		return fmt.Errorf("Docker is not running: %w", err)
+		return fmt.Errorf("docker is not running: %w", err)
 	}
 
 	port := cfg.Port
@@ -190,6 +198,7 @@ func (m *Manager) CreateMySQL(cfg *MySQLConfig) error {
 		Volumes: []string{
 			docker.CreateVolumeMount(dataDir, "/var/lib/mysql"),
 		},
+		Public: cfg.Public,
 	}
 
 	fmt.Printf("Creating MySQL container %s...\n", containerName)
@@ -217,6 +226,7 @@ func (m *Manager) CreateMySQL(cfg *MySQLConfig) error {
 		Port:        availablePort,
 		User:        cfg.User,
 		Password:    cfg.Password,
+		Public:      cfg.Public,
 		ContainerID: containerID,
 		Created:     time.Now(),
 	}
@@ -228,7 +238,14 @@ func (m *Manager) CreateMySQL(cfg *MySQLConfig) error {
 	fmt.Printf("✅ MySQL database '%s' created successfully!\n", cfg.Name)
 	fmt.Printf("   Container ID: %s\n", containerID[:12])
 	fmt.Printf("   Port: %d\n", availablePort)
-	fmt.Printf("   Connection: mysql -h localhost -P %d -u %s -p%s %s\n", availablePort, cfg.User, cfg.Password, cfg.Name)
+	host := "localhost"
+	if cfg.Public {
+		host = "<your-server-ip>"
+		fmt.Printf("   Public: Yes (accessible externally)\n")
+	} else {
+		fmt.Printf("   Public: No (localhost only)\n")
+	}
+	fmt.Printf("   Connection: mysql -h %s -P %d -u %s -p%s %s\n", host, availablePort, cfg.User, cfg.Password, cfg.Name)
 
 	return nil
 }
@@ -287,6 +304,13 @@ func (m *Manager) ListDatabases(dbType string) error {
 		fmt.Printf("   Status: %s\n", status)
 		if db.Port > 0 {
 			fmt.Printf("   Port: %d\n", db.Port)
+			if db.Type != "sqlite" {
+				if db.Public {
+					fmt.Printf("   Access: Public\n")
+				} else {
+					fmt.Printf("   Access: Private\n")
+				}
+			}
 		}
 		if db.FilePath != "" {
 			fmt.Printf("   File: %s\n", db.FilePath)
@@ -497,6 +521,13 @@ func (m *Manager) ShowInfo(name string, showCredentials bool) error {
 
 	if targetDB.Port > 0 {
 		fmt.Printf("Port:         %d\n", targetDB.Port)
+		if targetDB.Type != "sqlite" {
+			if targetDB.Public {
+				fmt.Printf("Access:       Public (externally accessible)\n")
+			} else {
+				fmt.Printf("Access:       Private (localhost only)\n")
+			}
+		}
 	}
 
 	if targetDB.FilePath != "" {
@@ -592,7 +623,7 @@ func (m *Manager) Start(name string) error {
 	}
 
 	if m.dockerService == nil {
-		return fmt.Errorf("Docker service not available")
+		return fmt.Errorf("docker service not available")
 	}
 
 	ctx := context.Background()
@@ -633,7 +664,7 @@ func (m *Manager) Stop(name string) error {
 	}
 
 	if m.dockerService == nil {
-		return fmt.Errorf("Docker service not available")
+		return fmt.Errorf("docker service not available")
 	}
 
 	ctx := context.Background()

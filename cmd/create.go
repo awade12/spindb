@@ -43,7 +43,7 @@ func init() {
 	createPostgresCmd.Flags().StringP("name", "n", "", "Database name (required)")
 	createPostgresCmd.Flags().StringP("user", "u", "postgres", "Database user")
 	createPostgresCmd.Flags().StringP("password", "p", "", "Database password (required)")
-	createPostgresCmd.Flags().IntP("port", "", 5432, "Database port")
+	createPostgresCmd.Flags().IntP("port", "", 0, "Database port (0 for auto)")
 	createPostgresCmd.Flags().StringP("version", "v", "15", "PostgreSQL version")
 	createPostgresCmd.Flags().Bool("public", false, "Make database publicly accessible")
 	createPostgresCmd.MarkFlagRequired("name")
@@ -52,8 +52,9 @@ func init() {
 	createMysqlCmd.Flags().StringP("name", "n", "", "Database name (required)")
 	createMysqlCmd.Flags().StringP("user", "u", "root", "Database user")
 	createMysqlCmd.Flags().StringP("password", "p", "", "Database password (required)")
-	createMysqlCmd.Flags().IntP("port", "", 3306, "Database port")
+	createMysqlCmd.Flags().IntP("port", "", 0, "Database port (0 for auto)")
 	createMysqlCmd.Flags().StringP("version", "v", "8.0", "MySQL version")
+	createMysqlCmd.Flags().Bool("public", false, "Make database publicly accessible")
 	createMysqlCmd.MarkFlagRequired("name")
 	createMysqlCmd.MarkFlagRequired("password")
 
@@ -89,6 +90,7 @@ func createMysql(cmd *cobra.Command, args []string) error {
 	password, _ := cmd.Flags().GetString("password")
 	port, _ := cmd.Flags().GetInt("port")
 	version, _ := cmd.Flags().GetString("version")
+	public, _ := cmd.Flags().GetBool("public")
 
 	manager := db.NewManager()
 	config := &db.MySQLConfig{
@@ -97,6 +99,7 @@ func createMysql(cmd *cobra.Command, args []string) error {
 		Password: password,
 		Port:     port,
 		Version:  version,
+		Public:   public,
 	}
 
 	fmt.Printf("Creating MySQL database '%s'...\n", name)

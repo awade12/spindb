@@ -29,19 +29,22 @@ sudo make install
 ### Basic Usage
 
 ```bash
-# Create a PostgreSQL database (with Docker)
-spindb create postgres --name myapp-db --user admin --password secret123 --version 15
+# Create a PostgreSQL database (private, auto port)
+spindb create postgres --name myapp-db --user admin --password secret123
 
-# Create a MySQL database (with Docker)
-spindb create mysql --name shop-db --user shopuser --password shop123 --version 8.0
+# Create a PostgreSQL database with public access (externally accessible)
+spindb create postgres --name public-api --user admin --password secret123 --public
+
+# Create a MySQL database with specific port
+spindb create mysql --name shop-db --user shopuser --password shop123 --port 3307 --public
 
 # Create a SQLite database (file-based)
 spindb create sqlite --file ./data/app.db
 
 # Use templates for quick setup
-spindb template install postgres-dev my-dev-db
+spindb template install postgres-dev my-dev-db --public
 
-# List all databases with status
+# List all databases with status and access level
 spindb list
 
 # Get detailed database information
@@ -73,7 +76,8 @@ spindb delete --name myapp-db
 
 ### ✅ **Docker Integration**
 - **Container lifecycle** - Create, start, stop, restart, delete
-- **Port management** - Automatic port allocation and conflict resolution
+- **Smart port management** - Automatic port allocation and conflict resolution
+- **Access control** - Private (localhost) or public (external) database access
 - **Volume mounting** - Persistent data storage
 - **Health monitoring** - Container status and database connectivity
 - **Resource cleanup** - Proper container and volume cleanup
@@ -84,6 +88,13 @@ spindb delete --name myapp-db
 - **Status monitoring** - Real-time container and database status
 - **Info display** - Detailed database configuration and connection info
 - **Comprehensive listing** - Show all databases with status and details
+
+### ✅ **Security & Port Management**
+- **Auto port assignment** - Automatic port allocation when not specified (--port 0)
+- **Private by default** - Databases bind to localhost only for security
+- **Public access option** - Use --public flag for external accessibility
+- **Port conflict resolution** - Automatic detection and assignment of available ports
+- **Access level display** - Clear indication of private vs public database access
 
 ### ✅ **Database Templates** (New in Phase 3)
 - **Predefined templates** - Common database setups (dev, test, prod)
@@ -203,13 +214,16 @@ spindb/
 
 ### Complete PostgreSQL Workflow
 ```bash
-# Create PostgreSQL database
-spindb create postgres --name webapp-db --user webuser --password secure123 --version 15
+# Create private PostgreSQL database (localhost only, auto port)
+spindb create postgres --name webapp-db --user webuser --password secure123
 
-# Check status
+# Create public PostgreSQL database (externally accessible)
+spindb create postgres --name api-db --user apiuser --password secure456 --public
+
+# Check status (shows access level and port)
 spindb list
 
-# Get connection details
+# Get connection details with credentials
 spindb info --name webapp-db --show-credentials
 
 # Connect to database
@@ -237,11 +251,14 @@ spindb template list
 spindb template create --name my-postgres --type postgres --description "My custom setup" \
   --version 15 --user myuser --password mypass --port 5432 --tags dev,custom
 
-# Install database from template
+# Install database from template (private by default)
 spindb template install my-postgres my-app-db
 
-# Override template settings
-spindb template install postgres-dev another-db --password different-pass --port 5433
+# Override template settings with public access
+spindb template install postgres-dev another-db --password different-pass --public
+
+# Install with auto port assignment
+spindb template install postgres-dev auto-port-db --port 0
 
 # Export template for sharing
 spindb template export my-postgres my-template.yaml
@@ -345,8 +362,10 @@ spindb env delete development --force
 
 ### Core Commands
 - `spindb create {postgres|mysql|sqlite}` - Create database instances
-- `spindb list` - List all managed databases
-- `spindb info --name <db>` - Show database details
+  - `--port 0` for auto port assignment
+  - `--public` for external access (private by default)
+- `spindb list` - List all managed databases with access levels
+- `spindb info --name <db>` - Show database details including access level
 - `spindb connect --name <db>` - Connect to database
 - `spindb {start|stop|restart} --name <db>` - Control database lifecycle
 - `spindb delete --name <db>` - Delete database and cleanup
@@ -356,6 +375,8 @@ spindb env delete development --force
 - `spindb template create` - Create custom template
 - `spindb template show <name>` - Show template details
 - `spindb template install <template> <db-name>` - Create database from template
+  - `--public` for external access override
+  - `--port <number>` for port override
 - `spindb template {import|export} <name> <file>` - Share templates
 - `spindb template delete <name>` - Delete custom template
 
@@ -374,6 +395,38 @@ spindb env delete development --force
 - `spindb env bulk {start|stop|restart} <env>` - Bulk operations
 - `spindb env {isolate|activate} <env>` - Environment isolation
 - `spindb env delete <name>` - Delete environment
+
+## Security Best Practices
+
+SpinDB prioritizes security with sensible defaults:
+
+### 🔒 **Access Control**
+- **Private by default** - All databases bind to `127.0.0.1` (localhost only)
+- **Explicit public access** - Use `--public` flag only when external access is needed
+- **Port isolation** - Auto-assigned ports reduce conflicts and exposure
+
+### 🛡️ **Network Security**
+```bash
+# ✅ Secure (private database)
+spindb create postgres --name secure-db --password strongpass123
+
+# ⚠️ Use with caution (public database)
+spindb create postgres --name api-db --password strongpass123 --public
+
+# 🔍 Check access levels
+spindb list  # Shows "Private" or "Public" for each database
+```
+
+### 🔑 **Connection Examples**
+```bash
+# Private database - only accessible from localhost
+psql -h localhost -p 5432 -U user -d mydb
+
+# Public database - accessible from external networks
+psql -h your-server-ip -p 5432 -U user -d mydb
+```
+
+> **💡 Tip**: Always use strong passwords and consider firewall rules when using `--public` flag in production environments.
 
 ## Contributing
 

@@ -277,7 +277,7 @@ func installTemplate(cmd *cobra.Command, args []string) error {
 
 	switch template.Type {
 	case "postgres":
-		port := 5432
+		port := 0
 		if portOverride != "" {
 			if p, err := strconv.Atoi(portOverride); err == nil {
 				port = p
@@ -306,7 +306,7 @@ func installTemplate(cmd *cobra.Command, args []string) error {
 		return manager.CreatePostgres(config)
 
 	case "mysql":
-		port := 3306
+		port := 0
 		if portOverride != "" {
 			if p, err := strconv.Atoi(portOverride); err == nil {
 				port = p
@@ -328,6 +328,7 @@ func installTemplate(cmd *cobra.Command, args []string) error {
 			Password: password,
 			Port:     port,
 			Version:  template.Version,
+			Public:   public,
 		}
 
 		fmt.Printf("Creating MySQL database '%s' from template '%s'...\n", databaseName, templateName)

@@ -6,4 +6,5 @@ type MySQLConfig struct {
 	Password string
 	Port     int
 	Version  string
+	Public   bool
 }

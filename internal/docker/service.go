@@ -67,6 +67,7 @@ type ContainerConfig struct {
 	Ports         map[string]string
 	Volumes       []string
 	RestartPolicy string
+	Public        bool
 }
 
 func (s *Service) CreateContainer(ctx context.Context, config *ContainerConfig) (string, error) {
@@ -79,9 +80,14 @@ func (s *Service) CreateContainer(ctx context.Context, config *ContainerConfig) 
 			return "", fmt.Errorf("invalid port %s: %w", containerPort, err)
 		}
 
+		hostIP := "127.0.0.1"
+		if config.Public {
+			hostIP = "0.0.0.0"
+		}
+
 		portBindings[port] = []nat.PortBinding{
 			{
-				HostIP:   "0.0.0.0",
+				HostIP:   hostIP,
 				HostPort: hostPort,
 			},
 		}
